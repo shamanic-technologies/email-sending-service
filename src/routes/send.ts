@@ -1,7 +1,6 @@
 import { Router, Request, Response } from "express";
 import { SendRequestSchema } from "../schemas";
 import { config } from "../config";
-import { resolveOrganization, resolveUser } from "../lib/org-resolver";
 import * as postmarkClient from "../lib/postmark-client";
 import * as instantlyClient from "../lib/instantly-client";
 
@@ -17,20 +16,9 @@ router.post("/send", async (req: Request, res: Response) => {
   const body = parsed.data;
 
   try {
-    // Resolve org (upsert) if clerkOrgId provided
-    let orgId: string | undefined;
-    if (body.clerkOrgId) {
-      const org = await resolveOrganization(body.clerkOrgId, body.appId);
-      orgId = org.id;
-
-      if (body.clerkUserId) {
-        await resolveUser(body.clerkUserId, org.id);
-      }
-    }
-
     if (body.type === "transactional") {
       const result = await postmarkClient.sendEmail({
-        orgId,
+        orgId: body.clerkOrgId,
         runId: body.runId,
         brandId: body.brandId,
         appId: body.appId,
@@ -50,8 +38,8 @@ router.post("/send", async (req: Request, res: Response) => {
     }
 
     if (body.type === "broadcast") {
-      const result = await instantlyClient.atomicSend({
-        orgId,
+      await instantlyClient.atomicSend({
+        orgId: body.clerkOrgId,
         runId: body.runId,
         brandId: body.brandId,
         appId: body.appId,
