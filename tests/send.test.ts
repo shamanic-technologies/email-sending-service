@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import request from "supertest";
 import { app } from "../src/index";
+import { buildSignature, appendSignature } from "../src/lib/signature";
 
 // Mock config - vi.mock is hoisted, so use literal values
 vi.mock("../src/config", () => ({
@@ -158,7 +159,9 @@ describe("POST /send", () => {
       expect(body.lastName).toBe("Doe");
       expect(body.company).toBe("Acme Corp");
       expect(body.email.subject).toBe("Hello");
-      expect(body.email.body).toBe("<p>Hi</p>");
+      expect(body.email.body).toContain("<p>Hi</p>");
+      expect(body.email.body).toContain("Kevin Lourd");
+      expect(body.email.body).toContain("{{unsubscribe_url}}");
       expect(body.variables).toEqual({ source: "test" });
       expect(body.runId).toBe("run_1");
       expect(body.campaignId).toBe("campaign_1");
@@ -208,5 +211,93 @@ describe("POST /send", () => {
 
       expect(res.status).toBe(401);
     });
+  });
+
+  describe("signature", () => {
+    it("appends Postmark unsubscribe link for transactional emails", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, messageId: "pm_1" }),
+      });
+
+      await request(app)
+        .post("/send")
+        .set("X-API-Key", API_KEY)
+        .send(buildTransactionalBody());
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.htmlBody).toContain("{{{pm:unsubscribe}}}");
+      expect(body.htmlBody).not.toContain("{{unsubscribe_url}}");
+      expect(body.htmlBody).toContain("Kevin Lourd");
+      expect(body.htmlBody).toContain("GrowthAgency.dev");
+    });
+
+    it("appends Instantly unsubscribe link for broadcast emails", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, campaignId: "c1", leadId: "l1", added: 1 }),
+      });
+
+      await request(app)
+        .post("/send")
+        .set("X-API-Key", API_KEY)
+        .send(buildBroadcastBody());
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.email.body).toContain("{{unsubscribe_url}}");
+      expect(body.email.body).not.toContain("{{{pm:unsubscribe}}}");
+      expect(body.email.body).toContain("Kevin Lourd");
+      expect(body.email.body).toContain("GrowthAgency.dev");
+    });
+
+    it("does not append signature when htmlBody is missing (broadcast)", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, campaignId: "c1", leadId: "l1", added: 1 }),
+      });
+
+      await request(app)
+        .post("/send")
+        .set("X-API-Key", API_KEY)
+        .send(buildBroadcastBody({ htmlBody: undefined, textBody: "plain text" }));
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.email.body).toBe("plain text");
+    });
+  });
+});
+
+describe("buildSignature", () => {
+  it("uses Postmark unsubscribe for transactional", () => {
+    const sig = buildSignature("transactional");
+    expect(sig).toContain("{{{pm:unsubscribe}}}");
+    expect(sig).not.toContain("{{unsubscribe_url}}");
+  });
+
+  it("uses Instantly unsubscribe for broadcast", () => {
+    const sig = buildSignature("broadcast");
+    expect(sig).toContain("{{unsubscribe_url}}");
+    expect(sig).not.toContain("{{{pm:unsubscribe}}}");
+  });
+
+  it("includes signature content", () => {
+    const sig = buildSignature("broadcast");
+    expect(sig).toContain("Kevin Lourd");
+    expect(sig).toContain("Growth Agency");
+    expect(sig).toContain("GrowthAgency.dev");
+    expect(sig).toContain("BRAND_URL");
+  });
+});
+
+describe("appendSignature", () => {
+  it("returns undefined when htmlBody is undefined", () => {
+    expect(appendSignature(undefined, "broadcast")).toBeUndefined();
+  });
+
+  it("appends signature to htmlBody", () => {
+    const result = appendSignature("<p>Hello</p>", "transactional");
+    expect(result).toContain("<p>Hello</p>");
+    expect(result).toContain("Kevin Lourd");
+    expect(result).toContain("{{{pm:unsubscribe}}}");
   });
 });
