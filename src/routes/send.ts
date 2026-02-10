@@ -3,6 +3,7 @@ import { SendRequestSchema } from "../schemas";
 import { config } from "../config";
 import * as postmarkClient from "../lib/postmark-client";
 import * as instantlyClient from "../lib/instantly-client";
+import { appendSignature } from "../lib/signature";
 
 const router = Router();
 
@@ -14,6 +15,7 @@ router.post("/send", async (req: Request, res: Response) => {
   }
 
   const body = parsed.data;
+  const htmlWithSignature = appendSignature(body.htmlBody, body.type);
 
   console.log(`[send] type=${body.type} to=${body.to} campaign=${body.campaignId} run=${body.runId}`);
 
@@ -28,7 +30,7 @@ router.post("/send", async (req: Request, res: Response) => {
         from: config.emailFromAddress,
         to: body.to,
         subject: body.subject,
-        htmlBody: body.htmlBody,
+        htmlBody: htmlWithSignature,
         textBody: body.textBody,
         replyTo: body.replyTo,
         tag: body.tag,
@@ -54,7 +56,7 @@ router.post("/send", async (req: Request, res: Response) => {
         variables: body.metadata,
         email: {
           subject: body.subject,
-          body: body.htmlBody || body.textBody || "",
+          body: htmlWithSignature || body.textBody || "",
         },
       });
 
