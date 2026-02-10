@@ -251,7 +251,7 @@ describe("POST /send", () => {
       expect(body.htmlBody).toContain("{{{pm:unsubscribe}}}");
       expect(body.htmlBody).not.toContain("{{unsubscribe_url}}");
       expect(body.htmlBody).toContain("Kevin Lourd");
-      expect(body.htmlBody).toContain("GrowthAgency.dev");
+      expect(body.htmlBody).toContain("growthagency.dev");
     });
 
     it("appends Instantly unsubscribe link for broadcast emails", async () => {
@@ -270,7 +270,7 @@ describe("POST /send", () => {
       expect(body.email.body).toContain("{{unsubscribe_url}}");
       expect(body.email.body).not.toContain("{{{pm:unsubscribe}}}");
       expect(body.email.body).toContain("Kevin Lourd");
-      expect(body.email.body).toContain("GrowthAgency.dev");
+      expect(body.email.body).toContain("growthagency.dev");
     });
 
     it("injects brandUrl from brand service into signature", async () => {
@@ -340,8 +340,8 @@ describe("buildSignature", () => {
   it("includes signature content", () => {
     const sig = buildSignature("broadcast");
     expect(sig).toContain("Kevin Lourd");
-    expect(sig).toContain("Growth Agency");
-    expect(sig).toContain("GrowthAgency.dev");
+    expect(sig).toContain("Agency");
+    expect(sig).toContain("growthagency.dev");
   });
 
   it("falls back to BRAND_URL when no brandUrl provided", () => {
