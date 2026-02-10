@@ -17,14 +17,19 @@ router.post("/send", async (req: Request, res: Response) => {
   const body = parsed.data;
 
   try {
-    // Resolve org (upsert) if clerkOrgId provided
+    // Resolve org (upsert) if clerkOrgId provided — best-effort, don't block sending
     let orgId: string | undefined;
     if (body.clerkOrgId) {
-      const org = await resolveOrganization(body.clerkOrgId, body.appId);
-      orgId = org.id;
+      try {
+        const org = await resolveOrganization(body.clerkOrgId, body.appId);
+        orgId = org.id;
 
-      if (body.clerkUserId) {
-        await resolveUser(body.clerkUserId, org.id);
+        if (body.clerkUserId) {
+          await resolveUser(body.clerkUserId, org.id);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        console.warn(`[send] org resolution failed (non-fatal): ${msg}`);
       }
     }
 
