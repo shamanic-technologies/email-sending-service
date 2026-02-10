@@ -11,6 +11,7 @@ vi.mock("../src/config", () => ({
     emailFromAddress: "test@example.com",
     postmark: { url: "http://localhost:3010", apiKey: "pm-key" },
     instantly: { url: "http://localhost:3011", apiKey: "inst-key" },
+    brand: { url: "http://localhost:3005", apiKey: "brand-key" },
   },
 }));
 
@@ -19,6 +20,21 @@ const API_KEY = "test-api-key";
 // Mock fetch globally
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
+
+function mockBrandResponse(brandUrl = "https://acme.com") {
+  return {
+    ok: true,
+    json: () => Promise.resolve({ brand: { id: "brand_1", brandUrl, name: "Acme", domain: "acme.com" } }),
+  };
+}
+
+function mockBrandFailure() {
+  return {
+    ok: false,
+    status: 500,
+    text: () => Promise.resolve("Brand service error"),
+  };
+}
 
 function buildBroadcastBody(overrides = {}) {
   return {
@@ -63,6 +79,7 @@ describe("POST /send", () => {
 
   describe("broadcast (Instantly)", () => {
     it("returns success with campaignId and messageId when added > 0", async () => {
+      mockFetch.mockResolvedValueOnce(mockBrandResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -89,6 +106,7 @@ describe("POST /send", () => {
     });
 
     it("returns 409 when added === 0 (duplicate lead)", async () => {
+      mockFetch.mockResolvedValueOnce(mockBrandResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -112,6 +130,7 @@ describe("POST /send", () => {
     });
 
     it("returns 502 when instantly-service is down", async () => {
+      mockFetch.mockResolvedValueOnce(mockBrandResponse());
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -128,6 +147,7 @@ describe("POST /send", () => {
     });
 
     it("passes correct payload to instantly-service", async () => {
+      mockFetch.mockResolvedValueOnce(mockBrandResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -148,8 +168,8 @@ describe("POST /send", () => {
           })
         );
 
-      expect(mockFetch).toHaveBeenCalledOnce();
-      const [url, options] = mockFetch.mock.calls[0];
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      const [url, options] = mockFetch.mock.calls[1];
       expect(url).toBe("http://localhost:3011/send");
       expect(options.method).toBe("POST");
 
@@ -170,6 +190,7 @@ describe("POST /send", () => {
 
   describe("transactional (Postmark)", () => {
     it("returns success with messageId", async () => {
+      mockFetch.mockResolvedValueOnce(mockBrandResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -215,6 +236,7 @@ describe("POST /send", () => {
 
   describe("signature", () => {
     it("appends Postmark unsubscribe link for transactional emails", async () => {
+      mockFetch.mockResolvedValueOnce(mockBrandResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ success: true, messageId: "pm_1" }),
@@ -225,7 +247,7 @@ describe("POST /send", () => {
         .set("X-API-Key", API_KEY)
         .send(buildTransactionalBody());
 
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
       expect(body.htmlBody).toContain("{{{pm:unsubscribe}}}");
       expect(body.htmlBody).not.toContain("{{unsubscribe_url}}");
       expect(body.htmlBody).toContain("Kevin Lourd");
@@ -233,6 +255,7 @@ describe("POST /send", () => {
     });
 
     it("appends Instantly unsubscribe link for broadcast emails", async () => {
+      mockFetch.mockResolvedValueOnce(mockBrandResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ success: true, campaignId: "c1", leadId: "l1", added: 1 }),
@@ -243,14 +266,48 @@ describe("POST /send", () => {
         .set("X-API-Key", API_KEY)
         .send(buildBroadcastBody());
 
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
       expect(body.email.body).toContain("{{unsubscribe_url}}");
       expect(body.email.body).not.toContain("{{{pm:unsubscribe}}}");
       expect(body.email.body).toContain("Kevin Lourd");
       expect(body.email.body).toContain("GrowthAgency.dev");
     });
 
+    it("injects brandUrl from brand service into signature", async () => {
+      mockFetch.mockResolvedValueOnce(mockBrandResponse("https://mybrand.com"));
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, campaignId: "c1", leadId: "l1", added: 1 }),
+      });
+
+      await request(app)
+        .post("/send")
+        .set("X-API-Key", API_KEY)
+        .send(buildBroadcastBody());
+
+      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(body.email.body).toContain("https://mybrand.com");
+      expect(body.email.body).not.toContain("BRAND_URL");
+    });
+
+    it("falls back to BRAND_URL when brand service fails", async () => {
+      mockFetch.mockResolvedValueOnce(mockBrandFailure());
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, campaignId: "c1", leadId: "l1", added: 1 }),
+      });
+
+      await request(app)
+        .post("/send")
+        .set("X-API-Key", API_KEY)
+        .send(buildBroadcastBody());
+
+      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(body.email.body).toContain("BRAND_URL");
+    });
+
     it("does not append signature when htmlBody is missing (broadcast)", async () => {
+      mockFetch.mockResolvedValueOnce(mockBrandResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ success: true, campaignId: "c1", leadId: "l1", added: 1 }),
@@ -261,7 +318,7 @@ describe("POST /send", () => {
         .set("X-API-Key", API_KEY)
         .send(buildBroadcastBody({ htmlBody: undefined, textBody: "plain text" }));
 
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
       expect(body.email.body).toBe("plain text");
     });
   });
@@ -285,7 +342,17 @@ describe("buildSignature", () => {
     expect(sig).toContain("Kevin Lourd");
     expect(sig).toContain("Growth Agency");
     expect(sig).toContain("GrowthAgency.dev");
+  });
+
+  it("falls back to BRAND_URL when no brandUrl provided", () => {
+    const sig = buildSignature("broadcast");
     expect(sig).toContain("BRAND_URL");
+  });
+
+  it("injects brandUrl when provided", () => {
+    const sig = buildSignature("broadcast", "https://mybrand.com");
+    expect(sig).toContain("https://mybrand.com");
+    expect(sig).not.toContain("BRAND_URL");
   });
 });
 
