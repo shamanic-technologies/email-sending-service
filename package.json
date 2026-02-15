@@ -1,5 +1,5 @@
 {
-  "name": "email-gateway",
+  "name": "email-gateway-service",
   "version": "1.0.0",
   "description": "Email gateway - routes emails to Postmark (transactional) or Instantly (broadcast) based on type",
   "main": "dist/index.js",
