@@ -60,13 +60,19 @@ export async function getStats(filters: {
   campaignId?: string;
 }) {
   return request<{
-    totalCampaigns: number;
-    totalLeads: number;
-    contacted: number;
-    opened: number;
-    replied: number;
-    bounced: number;
-    unsubscribed: number;
+    stats: {
+      emailsSent: number;
+      emailsDelivered: number;
+      emailsOpened: number;
+      emailsClicked: number;
+      emailsReplied: number;
+      emailsBounced: number;
+      repliesAutoReply: number;
+      repliesNotInterested: number;
+      repliesOutOfOffice: number;
+      repliesUnsubscribe: number;
+    };
+    recipients: number;
   }>("/stats", { method: "POST", body: filters });
 }
 

@@ -5,7 +5,7 @@ import * as instantlyClient from "../lib/instantly-client";
 
 const router = Router();
 
-function normalizePostmarkStats(raw: {
+interface ProviderStatsResponse {
   stats: {
     emailsSent: number;
     emailsDelivered: number;
@@ -15,7 +15,10 @@ function normalizePostmarkStats(raw: {
     emailsBounced: number;
     repliesUnsubscribe: number;
   };
-}): Stats {
+  recipients?: number;
+}
+
+function normalizeProviderStats(raw: ProviderStatsResponse): Stats {
   return {
     sent: raw.stats.emailsSent,
     delivered: raw.stats.emailsDelivered,
@@ -24,28 +27,7 @@ function normalizePostmarkStats(raw: {
     replied: raw.stats.emailsReplied,
     bounced: raw.stats.emailsBounced,
     unsubscribed: raw.stats.repliesUnsubscribe,
-    recipients: raw.stats.emailsSent,
-  };
-}
-
-function normalizeInstantlyStats(raw: {
-  totalCampaigns: number;
-  totalLeads: number;
-  contacted: number;
-  opened: number;
-  replied: number;
-  bounced: number;
-  unsubscribed: number;
-}): Stats {
-  return {
-    sent: raw.contacted,
-    delivered: 0,
-    opened: raw.opened,
-    clicked: 0,
-    replied: raw.replied,
-    bounced: raw.bounced,
-    unsubscribed: raw.unsubscribed,
-    recipients: raw.totalLeads,
+    recipients: raw.recipients ?? raw.stats.emailsSent,
   };
 }
 
@@ -61,13 +43,13 @@ router.post("/stats", async (req: Request, res: Response) => {
   try {
     if (type === "transactional") {
       const raw = await postmarkClient.getStats(filters);
-      res.json({ transactional: normalizePostmarkStats(raw) });
+      res.json({ transactional: normalizeProviderStats(raw) });
       return;
     }
 
     if (type === "broadcast") {
       const raw = await instantlyClient.getStats(filters);
-      res.json({ broadcast: normalizeInstantlyStats(raw) });
+      res.json({ broadcast: normalizeProviderStats(raw) });
       return;
     }
 
@@ -80,14 +62,16 @@ router.post("/stats", async (req: Request, res: Response) => {
     const response: Record<string, unknown> = {};
 
     if (postmarkResult.status === "fulfilled") {
-      response.transactional = normalizePostmarkStats(postmarkResult.value);
+      response.transactional = normalizeProviderStats(postmarkResult.value);
     } else {
+      console.error(`[stats] Postmark failed: ${postmarkResult.reason?.message}`);
       response.transactional = { error: postmarkResult.reason?.message };
     }
 
     if (instantlyResult.status === "fulfilled") {
-      response.broadcast = normalizeInstantlyStats(instantlyResult.value);
+      response.broadcast = normalizeProviderStats(instantlyResult.value);
     } else {
+      console.error(`[stats] Instantly failed: ${instantlyResult.reason?.message}`);
       response.broadcast = { error: instantlyResult.reason?.message };
     }
 
