@@ -52,9 +52,10 @@ const SendBaseSchema = z.object({
 
 export const SequenceStepSchema = z
   .object({
-    subject: z.string().describe("Email subject line for this step"),
-    body: z.string().describe("HTML email body for this step"),
-    delayDays: z.number().int().min(0).describe("Days to wait before sending this step (0 = immediate)"),
+    step: z.number().int().min(1).describe("Step number (1-based ordinal)"),
+    bodyHtml: z.string().describe("HTML email body for this step"),
+    bodyText: z.string().describe("Plain text email body for this step"),
+    delayDays: z.number().int().min(0).describe("Days to wait before sending this step relative to first send (0 = immediate)"),
   })
   .openapi("SequenceStep");
 
@@ -69,6 +70,7 @@ const TransactionalSendSchema = SendBaseSchema.extend({
 
 const BroadcastSendSchema = SendBaseSchema.extend({
   type: z.literal("broadcast").describe("Broadcast email channel"),
+  subject: z.string().describe("Shared email subject line (same thread, follow-ups are Re:)"),
   sequence: z.array(SequenceStepSchema).min(1).describe("Email sequence steps sent via Instantly"),
 });
 

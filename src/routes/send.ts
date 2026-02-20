@@ -81,6 +81,7 @@ router.post("/send", async (req: Request, res: Response) => {
         lastName: body.recipientLastName,
         company: body.recipientCompany,
         variables: body.metadata,
+        subject: body.subject,
         sequence: body.sequence,
       });
 

@@ -49,10 +49,11 @@ function buildBroadcastBody(overrides = {}) {
     recipientFirstName: "Jane",
     recipientLastName: "Doe",
     recipientCompany: "Acme Corp",
+    subject: "Hello",
     sequence: [
-      { subject: "Hello", body: "<p>Hi</p>", delayDays: 0 },
-      { subject: "Follow up", body: "<p>Following up</p>", delayDays: 3 },
-      { subject: "Last chance", body: "<p>Final email</p>", delayDays: 10 },
+      { step: 1, bodyHtml: "<p>Hi</p>", bodyText: "Hi", delayDays: 0 },
+      { step: 2, bodyHtml: "<p>Following up</p>", bodyText: "Following up", delayDays: 3 },
+      { step: 3, bodyHtml: "<p>Final email</p>", bodyText: "Final email", delayDays: 10 },
     ],
     ...overrides,
   };
@@ -179,10 +180,11 @@ describe("POST /send", () => {
       expect(body.firstName).toBe("Jane");
       expect(body.lastName).toBe("Doe");
       expect(body.company).toBe("Acme Corp");
+      expect(body.subject).toBe("Hello");
       expect(body.sequence).toEqual([
-        { subject: "Hello", body: "<p>Hi</p>", delayDays: 0 },
-        { subject: "Follow up", body: "<p>Following up</p>", delayDays: 3 },
-        { subject: "Last chance", body: "<p>Final email</p>", delayDays: 10 },
+        { step: 1, bodyHtml: "<p>Hi</p>", bodyText: "Hi", delayDays: 0 },
+        { step: 2, bodyHtml: "<p>Following up</p>", bodyText: "Following up", delayDays: 3 },
+        { step: 3, bodyHtml: "<p>Final email</p>", bodyText: "Final email", delayDays: 10 },
       ]);
       expect(body.email).toBeUndefined();
       expect(body.variables).toEqual({ source: "test" });
@@ -206,7 +208,7 @@ describe("POST /send", () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(body.sequence).toHaveLength(3);
-      expect(body.sequence[0].body).toBe("<p>Hi</p>");
+      expect(body.sequence[0].bodyHtml).toBe("<p>Hi</p>");
       expect(body.email).toBeUndefined();
     });
   });
@@ -484,7 +486,7 @@ describe("POST /send", () => {
         .send(buildBroadcastBody({ appId: "mcpfactory" }));
 
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(body.sequence[0].body).toBe("<p>Hi</p>");
+      expect(body.sequence[0].bodyHtml).toBe("<p>Hi</p>");
       expect(body.email).toBeUndefined();
     });
 
@@ -574,7 +576,7 @@ describe("POST /send", () => {
 
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(body.sequence).toHaveLength(3);
-      expect(body.sequence[0].body).toBe("<p>Hi</p>");
+      expect(body.sequence[0].bodyHtml).toBe("<p>Hi</p>");
       expect(body.email).toBeUndefined();
     });
   });

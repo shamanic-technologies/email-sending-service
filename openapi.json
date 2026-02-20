@@ -114,23 +114,29 @@
       "SequenceStep": {
         "type": "object",
         "properties": {
-          "subject": {
-            "type": "string",
-            "description": "Email subject line for this step"
+          "step": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Step number (1-based ordinal)"
           },
-          "body": {
+          "bodyHtml": {
             "type": "string",
             "description": "HTML email body for this step"
+          },
+          "bodyText": {
+            "type": "string",
+            "description": "Plain text email body for this step"
           },
           "delayDays": {
             "type": "integer",
             "minimum": 0,
-            "description": "Days to wait before sending this step (0 = immediate)"
+            "description": "Days to wait before sending this step relative to first send (0 = immediate)"
           }
         },
         "required": [
-          "subject",
-          "body",
+          "step",
+          "bodyHtml",
+          "bodyText",
           "delayDays"
         ]
       },
@@ -302,6 +308,10 @@
                 ],
                 "description": "Broadcast email channel"
               },
+              "subject": {
+                "type": "string",
+                "description": "Shared email subject line (same thread, follow-ups are Re:)"
+              },
               "sequence": {
                 "type": "array",
                 "items": {
@@ -319,6 +329,7 @@
               "recipientLastName",
               "recipientCompany",
               "type",
+              "subject",
               "sequence"
             ]
           }

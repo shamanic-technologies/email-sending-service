@@ -44,9 +44,11 @@ export async function atomicSend(body: {
   lastName?: string;
   company?: string;
   variables?: Record<string, string>;
+  subject: string;
   sequence: Array<{
-    subject: string;
-    body: string;
+    step: number;
+    bodyHtml: string;
+    bodyText: string;
     delayDays: number;
   }>;
 }) {
