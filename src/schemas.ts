@@ -39,6 +39,7 @@ const SendBaseSchema = z.object({
   brandId: z.string().optional().describe("Brand ID"),
   campaignId: z.string().optional().describe("Campaign ID"),
   runId: z.string().describe("Run ID for tracking"),
+  workflowName: z.string().describe("Workflow name for tracking and grouping"),
   clerkUserId: z.string().optional().describe("Clerk user ID"),
   to: z.string().email().describe("Recipient email address"),
   recipientFirstName: z.string().describe("Recipient first name"),
@@ -95,6 +96,9 @@ export type SendResponse = z.infer<typeof SendResponseSchema>;
 
 // --- POST /stats ---
 
+export const GroupByDimensionSchema = z.enum(["brandId", "campaignId", "workflowName", "leadEmail"]);
+export type GroupByDimension = z.infer<typeof GroupByDimensionSchema>;
+
 export const StatsRequestSchema = z
   .object({
     type: EmailTypeSchema.optional().describe("Filter by email channel type"),
@@ -103,6 +107,8 @@ export const StatsRequestSchema = z
     brandId: z.string().optional().describe("Filter by brand ID"),
     appId: z.string().optional().describe("Filter by app ID"),
     campaignId: z.string().optional().describe("Filter by campaign ID"),
+    workflowName: z.string().optional().describe("Filter by workflow name"),
+    groupBy: GroupByDimensionSchema.optional().describe("Group results by dimension. When set, response is { groups: [...] } instead of flat stats."),
   })
   .openapi("StatsRequest");
 
@@ -135,6 +141,24 @@ export const StatsResponseSchema = z
   .openapi("StatsResponse");
 
 export type StatsResponse = z.infer<typeof StatsResponseSchema>;
+
+export const StatsGroupSchema = z
+  .object({
+    key: z.string().describe("Value of the groupBy dimension for this group"),
+    transactional: StatsSchema.optional().describe("Transactional stats for this group"),
+    broadcast: StatsSchema.optional().describe("Broadcast stats for this group"),
+  })
+  .openapi("StatsGroup");
+
+export type StatsGroup = z.infer<typeof StatsGroupSchema>;
+
+export const GroupedStatsResponseSchema = z
+  .object({
+    groups: z.array(StatsGroupSchema).describe("Stats grouped by the requested dimension"),
+  })
+  .openapi("GroupedStatsResponse");
+
+export type GroupedStatsResponse = z.infer<typeof GroupedStatsResponseSchema>;
 
 // --- Health ---
 
@@ -194,7 +218,7 @@ registry.registerPath({
   path: "/stats",
   tags: ["Stats"],
   summary: "Get aggregated email stats",
-  description: "Get aggregated email stats filtered by type, runIds, clerkOrgId, brandId, appId, and/or campaignId",
+  description: "Get aggregated email stats. Without groupBy: returns flat { transactional?, broadcast? }. With groupBy: returns { groups: [{ key, transactional?, broadcast? }] }.",
   security: [{ apiKey: [] }],
   request: {
     body: {

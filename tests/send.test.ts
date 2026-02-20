@@ -44,6 +44,7 @@ function buildBroadcastBody(overrides = {}) {
     brandId: "brand_1",
     campaignId: "campaign_1",
     runId: "run_1",
+    workflowName: "test-workflow",
     clerkOrgId: "org_1",
     to: "lead@example.com",
     recipientFirstName: "Jane",
@@ -66,6 +67,7 @@ function buildTransactionalBody(overrides = {}) {
     brandId: "brand_1",
     campaignId: "campaign_1",
     runId: "run_1",
+    workflowName: "test-workflow",
     clerkOrgId: "org_1",
     to: "user@example.com",
     recipientFirstName: "John",
@@ -434,12 +436,57 @@ describe("POST /send", () => {
     });
   });
 
+  describe("workflowName forwarding", () => {
+    it("forwards workflowName to instantly-service for broadcast", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({ success: true, campaignId: "c1", leadId: "l1", added: 1 }),
+      });
+
+      await request(app)
+        .post("/send")
+        .set("X-API-Key", API_KEY)
+        .send(buildBroadcastBody({ workflowName: "outreach-v2" }));
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.workflowName).toBe("outreach-v2");
+    });
+
+    it("forwards workflowName to postmark-service for transactional", async () => {
+      mockFetch.mockResolvedValueOnce(mockBrandResponse());
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, messageId: "pm_1" }),
+      });
+
+      await request(app)
+        .post("/send")
+        .set("X-API-Key", API_KEY)
+        .send(buildTransactionalBody({ workflowName: "welcome-flow" }));
+
+      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(body.workflowName).toBe("welcome-flow");
+    });
+  });
+
   describe("validation", () => {
     it("returns 400 for missing required fields", async () => {
       const res = await request(app)
         .post("/send")
         .set("X-API-Key", API_KEY)
         .send({ type: "broadcast" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("Invalid request");
+    });
+
+    it("returns 400 when workflowName is missing", async () => {
+      const { workflowName, ...bodyWithout } = buildBroadcastBody();
+      const res = await request(app)
+        .post("/send")
+        .set("X-API-Key", API_KEY)
+        .send(bodyWithout);
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe("Invalid request");
