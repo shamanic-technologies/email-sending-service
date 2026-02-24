@@ -4,6 +4,7 @@ import { config } from "./config";
 import { serviceAuth } from "./middleware/serviceAuth";
 import healthRoutes from "./routes/health";
 import sendRoutes from "./routes/send";
+import statusRoutes from "./routes/status";
 import statsRoutes from "./routes/stats";
 import webhooksRoutes from "./routes/webhooks";
 
@@ -18,6 +19,7 @@ app.use("/webhooks", webhooksRoutes);
 
 // Protected routes (require X-API-Key)
 app.use(serviceAuth, sendRoutes);
+app.use(serviceAuth, statusRoutes);
 app.use(serviceAuth, statsRoutes);
 
 app.listen(config.port, () => {

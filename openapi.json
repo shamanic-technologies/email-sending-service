@@ -160,6 +160,10 @@
                 "type": "string",
                 "description": "Campaign ID"
               },
+              "leadId": {
+                "type": "string",
+                "description": "Lead ID from lead-service for end-to-end tracking"
+              },
               "runId": {
                 "type": "string",
                 "description": "Run ID for tracking"
@@ -275,6 +279,10 @@
               "campaignId": {
                 "type": "string",
                 "description": "Campaign ID"
+              },
+              "leadId": {
+                "type": "string",
+                "description": "Lead ID from lead-service for end-to-end tracking"
               },
               "runId": {
                 "type": "string",
@@ -539,6 +547,187 @@
             "description": "Group results by dimension. When set, response is { groups: [...] } instead of flat stats."
           }
         }
+      },
+      "LeadStatus": {
+        "type": "object",
+        "properties": {
+          "contacted": {
+            "type": "boolean",
+            "description": "Whether this lead has been contacted"
+          },
+          "delivered": {
+            "type": "boolean",
+            "description": "Whether an email was delivered to this lead"
+          },
+          "replied": {
+            "type": "boolean",
+            "description": "Whether this lead has replied"
+          },
+          "lastDeliveredAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO timestamp of last delivery"
+          }
+        },
+        "required": [
+          "contacted",
+          "delivered",
+          "replied",
+          "lastDeliveredAt"
+        ],
+        "description": "Status aggregated across all emails for this lead"
+      },
+      "EmailStatus": {
+        "type": "object",
+        "properties": {
+          "contacted": {
+            "type": "boolean",
+            "description": "Whether this email address has been contacted"
+          },
+          "delivered": {
+            "type": "boolean",
+            "description": "Whether an email was delivered to this address"
+          },
+          "bounced": {
+            "type": "boolean",
+            "description": "Whether an email to this address has bounced"
+          },
+          "unsubscribed": {
+            "type": "boolean",
+            "description": "Whether this email address has unsubscribed"
+          },
+          "lastDeliveredAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO timestamp of last delivery"
+          }
+        },
+        "required": [
+          "contacted",
+          "delivered",
+          "bounced",
+          "unsubscribed",
+          "lastDeliveredAt"
+        ],
+        "description": "Status for this specific email address"
+      },
+      "StatusScope": {
+        "type": "object",
+        "properties": {
+          "lead": {
+            "$ref": "#/components/schemas/LeadStatus"
+          },
+          "email": {
+            "$ref": "#/components/schemas/EmailStatus"
+          }
+        },
+        "required": [
+          "lead",
+          "email"
+        ],
+        "description": "Status scoped to the given campaign"
+      },
+      "ProviderStatus": {
+        "type": "object",
+        "properties": {
+          "campaign": {
+            "$ref": "#/components/schemas/StatusScope"
+          },
+          "global": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StatusScope"
+              },
+              {
+                "description": "Status aggregated across all campaigns"
+              }
+            ]
+          }
+        },
+        "required": [
+          "campaign",
+          "global"
+        ],
+        "description": "Status from broadcast provider (Instantly)"
+      },
+      "StatusResult": {
+        "type": "object",
+        "properties": {
+          "leadId": {
+            "type": "string",
+            "description": "Lead ID from lead-service"
+          },
+          "email": {
+            "type": "string",
+            "description": "Recipient email address"
+          },
+          "broadcast": {
+            "$ref": "#/components/schemas/ProviderStatus"
+          },
+          "transactional": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProviderStatus"
+              },
+              {
+                "description": "Status from transactional provider (Postmark)"
+              }
+            ]
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "StatusResponse": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatusResult"
+            },
+            "description": "Status results per item"
+          }
+        },
+        "required": [
+          "results"
+        ]
+      },
+      "StatusRequest": {
+        "type": "object",
+        "properties": {
+          "campaignId": {
+            "type": "string",
+            "description": "Campaign ID to scope the lookup"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "leadId": {
+                  "type": "string",
+                  "description": "Lead ID from lead-service"
+                },
+                "email": {
+                  "type": "string",
+                  "format": "email",
+                  "description": "Recipient email address"
+                }
+              },
+              "required": [
+                "email"
+              ]
+            },
+            "minItems": 1,
+            "description": "List of lead/email pairs to check"
+          }
+        },
+        "required": [
+          "campaignId",
+          "items"
+        ]
       }
     },
     "parameters": {}
@@ -658,6 +847,71 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StatsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Upstream service error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/status": {
+      "post": {
+        "tags": [
+          "Status"
+        ],
+        "summary": "Get delivery status for leads/emails",
+        "description": "Batch lookup of delivery status scoped by campaign. Returns status from both broadcast (Instantly) and transactional (Postmark) providers, each with campaign-scoped and global views.",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

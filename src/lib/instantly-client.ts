@@ -37,6 +37,7 @@ export async function atomicSend(body: {
   orgId?: string;
   brandId?: string;
   appId: string;
+  leadId?: string;
   runId?: string;
   workflowName?: string;
   campaignId?: string;
@@ -105,6 +106,26 @@ export async function getStats(filters: {
   groupBy?: string;
 }) {
   return request<ProviderStatsResult>("/stats", { method: "POST", body: filters });
+}
+
+export interface StatusResult {
+  leadId?: string;
+  email: string;
+  campaign: {
+    lead: { contacted: boolean; delivered: boolean; replied: boolean; lastDeliveredAt: string | null };
+    email: { contacted: boolean; delivered: boolean; bounced: boolean; unsubscribed: boolean; lastDeliveredAt: string | null };
+  };
+  global: {
+    lead: { contacted: boolean; delivered: boolean; replied: boolean; lastDeliveredAt: string | null };
+    email: { contacted: boolean; delivered: boolean; bounced: boolean; unsubscribed: boolean; lastDeliveredAt: string | null };
+  };
+}
+
+export async function getStatus(body: {
+  campaignId: string;
+  items: Array<{ leadId?: string; email: string }>;
+}) {
+  return request<{ results: StatusResult[] }>("/status", { method: "POST", body });
 }
 
 export async function forwardWebhook(body: unknown) {
