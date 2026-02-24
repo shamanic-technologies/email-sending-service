@@ -38,6 +38,7 @@ const SendBaseSchema = z.object({
   clerkOrgId: z.string().optional().describe("Clerk organization ID"),
   brandId: z.string().optional().describe("Brand ID"),
   campaignId: z.string().optional().describe("Campaign ID"),
+  leadId: z.string().optional().describe("Lead ID from lead-service for end-to-end tracking"),
   runId: z.string().describe("Run ID for tracking"),
   workflowName: z.string().optional().describe("Workflow name for tracking and grouping"),
   clerkUserId: z.string().optional().describe("Clerk user ID"),
@@ -184,6 +185,72 @@ export const GroupedStatsResponseSchema = z
 
 export type GroupedStatsResponse = z.infer<typeof GroupedStatsResponseSchema>;
 
+// --- POST /status ---
+
+const LeadStatusSchema = z
+  .object({
+    contacted: z.boolean().describe("Whether this lead has been contacted"),
+    delivered: z.boolean().describe("Whether an email was delivered to this lead"),
+    replied: z.boolean().describe("Whether this lead has replied"),
+    lastDeliveredAt: z.string().nullable().describe("ISO timestamp of last delivery"),
+  })
+  .openapi("LeadStatus");
+
+const EmailStatusSchema = z
+  .object({
+    contacted: z.boolean().describe("Whether this email address has been contacted"),
+    delivered: z.boolean().describe("Whether an email was delivered to this address"),
+    bounced: z.boolean().describe("Whether an email to this address has bounced"),
+    unsubscribed: z.boolean().describe("Whether this email address has unsubscribed"),
+    lastDeliveredAt: z.string().nullable().describe("ISO timestamp of last delivery"),
+  })
+  .openapi("EmailStatus");
+
+const StatusScopeSchema = z
+  .object({
+    lead: LeadStatusSchema.describe("Status aggregated across all emails for this lead"),
+    email: EmailStatusSchema.describe("Status for this specific email address"),
+  })
+  .openapi("StatusScope");
+
+const ProviderStatusSchema = z
+  .object({
+    campaign: StatusScopeSchema.describe("Status scoped to the given campaign"),
+    global: StatusScopeSchema.describe("Status aggregated across all campaigns"),
+  })
+  .openapi("ProviderStatus");
+
+const StatusResultSchema = z
+  .object({
+    leadId: z.string().optional().describe("Lead ID from lead-service"),
+    email: z.string().describe("Recipient email address"),
+    broadcast: ProviderStatusSchema.optional().describe("Status from broadcast provider (Instantly)"),
+    transactional: ProviderStatusSchema.optional().describe("Status from transactional provider (Postmark)"),
+  })
+  .openapi("StatusResult");
+
+export const StatusItemSchema = z.object({
+  leadId: z.string().optional().describe("Lead ID from lead-service"),
+  email: z.string().email().describe("Recipient email address"),
+});
+
+export const StatusRequestSchema = z
+  .object({
+    campaignId: z.string().describe("Campaign ID to scope the lookup"),
+    items: z.array(StatusItemSchema).min(1).describe("List of lead/email pairs to check"),
+  })
+  .openapi("StatusRequest");
+
+export type StatusRequest = z.infer<typeof StatusRequestSchema>;
+
+export const StatusResponseSchema = z
+  .object({
+    results: z.array(StatusResultSchema).describe("Status results per item"),
+  })
+  .openapi("StatusResponse");
+
+export type StatusResponse = z.infer<typeof StatusResponseSchema>;
+
 // --- Health ---
 
 export const HealthResponseSchema = z
@@ -254,6 +321,29 @@ registry.registerPath({
       description: "Aggregated stats",
       content: { "application/json": { schema: StatsResponseSchema } },
     },
+    401: { description: "Unauthorized", content: errorContent },
+    502: { description: "Upstream service error", content: errorContent },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/status",
+  tags: ["Status"],
+  summary: "Get delivery status for leads/emails",
+  description: "Batch lookup of delivery status scoped by campaign. Returns status from both broadcast (Instantly) and transactional (Postmark) providers, each with campaign-scoped and global views.",
+  security: [{ apiKey: [] }],
+  request: {
+    body: {
+      content: { "application/json": { schema: StatusRequestSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Status results",
+      content: { "application/json": { schema: StatusResponseSchema } },
+    },
+    400: { description: "Invalid request", content: errorContent },
     401: { description: "Unauthorized", content: errorContent },
     502: { description: "Upstream service error", content: errorContent },
   },

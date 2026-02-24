@@ -554,6 +554,57 @@ describe("POST /send", () => {
     });
   });
 
+  describe("leadId forwarding", () => {
+    it("forwards leadId to instantly-service for broadcast", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({ success: true, campaignId: "c1", leadId: "l1", added: 1 }),
+      });
+
+      await request(app)
+        .post("/send")
+        .set("X-API-Key", API_KEY)
+        .send(buildBroadcastBody({ leadId: "lead_abc" }));
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.leadId).toBe("lead_abc");
+    });
+
+    it("forwards leadId to postmark-service for transactional", async () => {
+      mockFetch.mockResolvedValueOnce(mockBrandResponse());
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, messageId: "pm_1" }),
+      });
+
+      await request(app)
+        .post("/send")
+        .set("X-API-Key", API_KEY)
+        .send(buildTransactionalBody({ leadId: "lead_xyz" }));
+
+      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(body.leadId).toBe("lead_xyz");
+    });
+
+    it("works without leadId (optional field)", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({ success: true, campaignId: "c1", leadId: "l1", added: 1 }),
+      });
+
+      const res = await request(app)
+        .post("/send")
+        .set("X-API-Key", API_KEY)
+        .send(buildBroadcastBody());
+
+      expect(res.status).toBe(200);
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.leadId).toBeUndefined();
+    });
+  });
+
   describe("validation", () => {
     it("returns 400 for missing required fields", async () => {
       const res = await request(app)
