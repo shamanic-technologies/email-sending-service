@@ -143,7 +143,7 @@ describe("POST /stats", () => {
       const res = await request(app)
         .post("/stats")
         .set("X-API-Key", API_KEY)
-        .send({ type: "transactional", appId: "mcpfactory" });
+        .send({ type: "transactional", appId: "app_1" });
 
       expect(res.status).toBe(200);
       expect(res.body.transactional).toEqual({
@@ -171,7 +171,7 @@ describe("POST /stats", () => {
         .set("X-API-Key", API_KEY)
         .send({
           type: "transactional",
-          appId: "mcpfactory",
+          appId: "app_1",
           orgId: "org_123",
           campaignId: "camp_1",
         });
@@ -180,7 +180,7 @@ describe("POST /stats", () => {
       expect(url).toBe("http://localhost:3010/stats");
       expect(options.method).toBe("POST");
       const body = JSON.parse(options.body);
-      expect(body.appId).toBe("mcpfactory");
+      expect(body.appId).toBe("app_1");
       expect(body.orgId).toBe("org_123");
       expect(body.campaignId).toBe("camp_1");
       expect(body.type).toBeUndefined();
@@ -194,7 +194,7 @@ describe("POST /stats", () => {
       const res = await request(app)
         .post("/stats")
         .set("X-API-Key", API_KEY)
-        .send({ type: "broadcast", appId: "mcpfactory" });
+        .send({ type: "broadcast", appId: "app_1" });
 
       expect(res.status).toBe(200);
       expect(res.body.broadcast).toEqual({
@@ -222,7 +222,7 @@ describe("POST /stats", () => {
         .set("X-API-Key", API_KEY)
         .send({
           type: "broadcast",
-          appId: "mcpfactory",
+          appId: "app_1",
           orgId: "org_123",
         });
 
@@ -230,7 +230,7 @@ describe("POST /stats", () => {
       expect(url).toBe("http://localhost:3011/stats");
       expect(options.method).toBe("POST");
       const body = JSON.parse(options.body);
-      expect(body.appId).toBe("mcpfactory");
+      expect(body.appId).toBe("app_1");
       expect(body.orgId).toBe("org_123");
       expect(body.type).toBeUndefined();
     });
@@ -247,7 +247,7 @@ describe("POST /stats", () => {
       const res = await request(app)
         .post("/stats")
         .set("X-API-Key", API_KEY)
-        .send({ appId: "mcpfactory" });
+        .send({ appId: "app_1" });
 
       expect(res.status).toBe(200);
       expect(res.body.transactional.emailsSent).toBe(100);
@@ -269,7 +269,7 @@ describe("POST /stats", () => {
       const res = await request(app)
         .post("/stats")
         .set("X-API-Key", API_KEY)
-        .send({ appId: "mcpfactory" });
+        .send({ appId: "app_1" });
 
       expect(res.status).toBe(200);
       expect(res.body.transactional.emailsSent).toBe(100);
@@ -291,7 +291,7 @@ describe("POST /stats", () => {
       const res = await request(app)
         .post("/stats")
         .set("X-API-Key", API_KEY)
-        .send({ appId: "mcpfactory" });
+        .send({ appId: "app_1" });
 
       expect(res.status).toBe(200);
       expect(res.body.transactional.error).toBeDefined();
@@ -318,7 +318,7 @@ describe("POST /stats", () => {
       const res = await request(app)
         .post("/stats")
         .set("X-API-Key", API_KEY)
-        .send({ appId: "mcpfactory" });
+        .send({ appId: "app_1" });
 
       expect(res.status).toBe(200);
       expect(res.body.transactional.error).toBeDefined();
@@ -576,7 +576,7 @@ describe("POST /stats", () => {
       const res = await request(app)
         .post("/stats")
         .set("X-API-Key", API_KEY)
-        .send({ type: "broadcast", appId: "mcpfactory" });
+        .send({ type: "broadcast", appId: "app_1" });
 
       expect(res.status).toBe(200);
       expect(res.body.broadcast.emailsSent).toBe(80);
@@ -589,7 +589,7 @@ describe("POST /stats", () => {
       const res = await request(app)
         .post("/stats")
         .set("X-API-Key", API_KEY)
-        .send({ type: "broadcast", appId: "mcpfactory" });
+        .send({ type: "broadcast", appId: "app_1" });
 
       expect(res.status).toBe(502);
       expect(res.body.details).toContain("fetch failed");
@@ -612,7 +612,7 @@ describe("POST /stats", () => {
       const res = await request(app)
         .post("/stats")
         .set("X-API-Key", API_KEY)
-        .send({ type: "broadcast", appId: "mcpfactory" });
+        .send({ type: "broadcast", appId: "app_1" });
 
       expect(res.status).toBe(502);
       expect(callCount).toBe(1);
@@ -634,7 +634,7 @@ describe("POST /stats", () => {
       const res = await request(app)
         .post("/stats")
         .set("X-API-Key", API_KEY)
-        .send({ appId: "mcpfactory" });
+        .send({ appId: "app_1" });
 
       expect(res.status).toBe(200);
       expect(res.body.transactional.emailsSent).toBe(100);
@@ -687,7 +687,7 @@ describe("POST /stats", () => {
       const res = await request(app)
         .post("/stats")
         .set("X-API-Key", API_KEY)
-        .send({ appId: "mcpfactory" });
+        .send({ appId: "app_1" });
 
       expect(res.status).toBe(200);
       expect(res.body.transactional.stepStats).toBeUndefined();
